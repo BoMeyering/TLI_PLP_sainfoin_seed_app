@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
 
   web:
-    image: "${IMAGE_NAME:-ghcr.io/oxbow-solutions/tli_plp_sainfoin_seed_app}:${IMAGE_TAG:-latest}"
+    image: "${IMAGE_NAME:-ghcr.io/bomeyering/tli_plp_sainfoin_seed_app}:${IMAGE_TAG:-latest}"
     # Runs tini as real PID 1 so both gunicorn's and supercronic's child
     # processes get reaped properly, and signals still forward correctly.
     init: true
