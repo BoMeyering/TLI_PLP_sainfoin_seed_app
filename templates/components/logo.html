@@ -1,0 +1,11 @@
+{% load static %}
+{% comment %}
+Brand mark: the SeedView logo image on a brand-green tile, so it reads
+consistently in both light and dark themes regardless of the surrounding
+page background. Override `tile_class` (tile size + rounding, default
+"w-9 h-9 rounded-xl") and `icon_class` (image size, default "w-7 h-7")
+per call site.
+{% endcomment %}
+<div class="{{ tile_class|default:"w-9 h-9 rounded-xl" }} flex-shrink-0 flex items-center justify-center bg-brand-600">
+  <img src="{% static 'img/logo.png' %}" alt="SeedView" class="{{ icon_class|default:"w-7 h-7" }} object-contain" />
+</div>

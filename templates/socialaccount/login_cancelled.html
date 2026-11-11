@@ -1,0 +1,39 @@
+{% load i18n %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-50">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign-In Cancelled — SeedView</title>
+  <link rel="icon" type="image/png" href="{% static 'favicon.png' %}">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>html { font-size: 18px; }</style>
+  <script>tailwind.config = { theme: { extend: { colors: { brand: { 600: '#16a34a', 700: '#15803d' } } } } }</script>
+</head>
+<body class="h-full antialiased font-sans">
+<div class="flex min-h-full flex-col items-center justify-center py-12 px-6">
+
+  <a href="/" class="mb-8 flex items-center gap-2.5">
+    {% include "components/logo.html" %}
+    <span class="text-lg font-bold text-gray-900">SeedView</span>
+  </a>
+
+  <div class="w-full max-w-sm rounded-2xl bg-white border border-gray-100 shadow-sm p-8 text-center">
+    <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
+      <svg class="h-7 w-7 text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </div>
+    <h2 class="text-xl font-bold text-gray-900 mb-2">Sign-in cancelled</h2>
+    <p class="text-sm text-gray-500 mb-6">
+      You cancelled the Google sign-in. No changes were made to your account.
+    </p>
+    <a href="{% url 'account_login' %}"
+       class="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition">
+      Back to sign in
+    </a>
+  </div>
+</div>
+</body>
+</html>

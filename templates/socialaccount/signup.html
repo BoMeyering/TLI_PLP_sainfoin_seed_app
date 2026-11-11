@@ -1,0 +1,85 @@
+{% load i18n %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-50">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Complete Sign Up — SeedView</title>
+  <link rel="icon" type="image/png" href="{% static 'favicon.png' %}">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>html { font-size: 18px; }</style>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4', 600: '#16a34a', 700: '#15803d', 900: '#14532d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="h-full antialiased font-sans">
+
+<div class="flex min-h-full flex-col items-center justify-center py-12 px-6">
+
+  <a href="/" class="mb-8 flex items-center gap-2.5">
+    {% include "components/logo.html" %}
+    <span class="text-lg font-bold text-gray-900">SeedView</span>
+  </a>
+
+  <div class="w-full max-w-md rounded-2xl bg-white border border-gray-100 shadow-sm p-8">
+
+    <h2 class="text-xl font-bold text-gray-900 mb-1">Complete your sign-up</h2>
+    <p class="text-sm text-gray-500 mb-6">
+      One last step before you can access SeedView.
+    </p>
+
+    {% url 'socialaccount_signup' as action_url %}
+    <form method="POST" action="{{ action_url }}">
+      {% csrf_token %}
+      {{ redirect_field }}
+
+      {% if form.errors %}
+      <div class="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+        {% for field in form %}
+          {% for error in field.errors %}<p>{{ error }}</p>{% endfor %}
+        {% endfor %}
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+      {% endif %}
+
+      {% for field in form %}
+      <div class="mb-4">
+        <label for="{{ field.id_for_label }}"
+               class="block text-xs font-medium text-gray-700 mb-1.5">
+          {{ field.label }}{% if field.field.required %} <span class="text-red-500">*</span>{% endif %}
+        </label>
+        <input type="{{ field.field.widget.input_type|default:'text' }}"
+               name="{{ field.html_name }}"
+               id="{{ field.id_for_label }}"
+               value="{{ field.value|default:'' }}"
+               class="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none" />
+        {% if field.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ field.errors|join:", " }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+
+      <button type="submit"
+              class="w-full mt-2 rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 transition">
+        Complete Sign Up
+      </button>
+    </form>
+
+    <p class="mt-5 text-center text-xs text-gray-400">
+      <a href="{% url 'account_login' %}" class="hover:text-gray-600 transition">← Back to sign in</a>
+    </p>
+  </div>
+</div>
+</body>
+</html>

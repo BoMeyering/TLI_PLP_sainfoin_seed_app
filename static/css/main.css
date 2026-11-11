@@ -1,0 +1,52 @@
+/*
+  Site-wide base font size.
+  All Tailwind classes use rem, so changing this one value scales every
+  text-xs / text-sm / text-base / text-lg etc. proportionally.
+  Default browser/Tailwind baseline is 16px.
+  Adjust this value to taste — 17px or 18px are good starting points.
+*/
+html {
+  font-size: 18px;
+}
+
+/*
+  Dark/light theme toggle transition.
+  Applied globally so every element — sidebar, header, main content,
+  cards, tables — fades between themes in lockstep, rather than relying
+  on individual `transition-colors` utility classes scattered across
+  templates (easy to miss on a given element, which is what caused
+  elements to visibly transition at different rates).
+*/
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: ease;
+  transition-duration: 200ms;
+}
+
+/*
+  Collapsible sidebar.
+  Driven by a `sidebar-collapsed` class on <html> (toggled by the Alpine
+  `sidebar` store in base.html and mirrored to localStorage), the same
+  pattern the dark-mode toggle uses — so the collapsed width applies
+  synchronously on load with no flash, and works without depending on
+  Alpine having hydrated yet.
+
+  #app-sidebar restates the full color-transition list alongside `width`
+  because transition-property isn't additive across rules: the `*` rule
+  above would otherwise be replaced outright, not merged, for this element.
+*/
+#app-sidebar {
+  width: 16rem;
+  transition-property: background-color, border-color, color, fill, stroke, width;
+  transition-timing-function: ease;
+  transition-duration: 200ms;
+}
+:root.sidebar-collapsed #app-sidebar {
+  width: 5rem;
+}
+:root.sidebar-collapsed #app-sidebar .sidebar-expanded-only {
+  display: none;
+}
+:root.sidebar-collapsed #app-sidebar .sidebar-item-row {
+  justify-content: center;
+}

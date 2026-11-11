@@ -1,0 +1,513 @@
+{% extends "base.html" %}
+{% load job_extras %}
+
+{% block title %}{{ job.name }} — SeedView{% endblock %}
+{% block page_title %}{{ job.name }}{% endblock %}
+{% block page_subtitle %}
+  <p class="text-xs text-gray-400 dark:text-forest-500 mt-0.5">
+    Submitted {{ job.created_at|timesince }} ago &middot; {{ job.image_count }} image{{ job.image_count|pluralize }}
+  </p>
+{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2">
+
+  {% if job.is_stoppable %}
+  <form method="POST" action="{% url 'jobs:stop' pk=job.pk %}">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{% url 'jobs:detail' pk=job.pk %}">
+    <button type="submit"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 7.5A2.25 2.25 0 017.5 5.25h9a2.25 2.25 0 012.25 2.25v9a2.25 2.25 0 01-2.25 2.25h-9a2.25 2.25 0 01-2.25-2.25v-9z" />
+      </svg>
+      Stop Job
+    </button>
+  </form>
+  {% endif %}
+
+  <button type="button"
+          onclick="window.dispatchEvent(new CustomEvent('delete-job', { bubbles: true, detail: { name: '{{ job.name|escapejs }}', url: '{% url 'jobs:delete' pk=job.pk %}' } }))"
+          class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round"
+        d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916" />
+    </svg>
+    Delete
+  </button>
+
+  <a href="{% url 'jobs:history' %}"
+     class="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-forest-400 hover:text-gray-700 dark:hover:text-forest-200 transition-colors">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+    </svg>
+    Back
+  </a>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  .seed-dot {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: seed-pop 1.4s ease-in-out infinite;
+  }
+  @keyframes seed-pop {
+    0%, 100% { transform: scale(0.55); opacity: 0.35; }
+    50% { transform: scale(1); opacity: 1; }
+  }
+  .det-box { pointer-events: all; }
+  .det-box:hover { fill-opacity: 0.35; }
+</style>
+{% endblock %}
+
+{% block content %}
+{{ overlay_images|json_script:"overlay-images-data" }}
+{{ class_colors|json_script:"class-colors-data" }}
+{{ all_image_ids|json_script:"all-image-ids-data" }}
+<div class="space-y-5" x-data="lightbox()">
+
+  {# ── Job metadata ────────────────────────────────────────────────────── #}
+  <div class="rounded-2xl bg-white dark:bg-forest-800 border border-gray-100 dark:border-forest-700 shadow-sm p-5">
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+
+      <div>
+        <p class="text-xs text-gray-400 dark:text-forest-500 font-medium uppercase tracking-wide mb-1">Status</p>
+        {% include "components/status_badge.html" with status=job.status label=job.get_status_display %}
+      </div>
+
+      <div>
+        <p class="text-xs text-gray-400 dark:text-forest-500 font-medium uppercase tracking-wide mb-1">Source</p>
+        <p class="text-sm text-gray-900 dark:text-forest-200 font-medium">{{ job.get_source_display }}</p>
+      </div>
+
+      <div>
+        <p class="text-xs text-gray-400 dark:text-forest-500 font-medium uppercase tracking-wide mb-1">Images</p>
+        <p class="text-sm text-gray-900 dark:text-forest-200 font-medium">{{ job.image_count }}</p>
+      </div>
+
+      <div>
+        <p class="text-xs text-gray-400 dark:text-forest-500 font-medium uppercase tracking-wide mb-1">Confidence</p>
+        <p class="text-sm text-gray-900 dark:text-forest-200 font-medium">&ge; {% widthratio job.conf 1 100 %}%</p>
+      </div>
+
+      <div>
+        <p class="text-xs text-gray-400 dark:text-forest-500 font-medium uppercase tracking-wide mb-1">Submitted</p>
+        <p class="text-sm text-gray-900 dark:text-forest-200 font-medium">{{ job.created_at|date:"M j, Y H:i" }} UTC</p>
+      </div>
+
+      {% if job.completed_at %}
+      <div>
+        <p class="text-xs text-gray-400 dark:text-forest-500 font-medium uppercase tracking-wide mb-1">Finished</p>
+        <p class="text-sm text-gray-900 dark:text-forest-200 font-medium">{{ job.completed_at|date:"M j, Y H:i" }} UTC</p>
+      </div>
+      {% endif %}
+
+    </div>
+
+    {% if job.description %}
+    <div class="mt-4 pt-4 border-t border-gray-100 dark:border-forest-700">
+      <p class="text-xs text-gray-400 dark:text-forest-500 font-medium uppercase tracking-wide mb-1">Description</p>
+      <p class="text-sm text-gray-700 dark:text-forest-300">{{ job.description }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ── Detection summary ───────────────────────────────────────────────── #}
+  {% if completed_count %}
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    {% for c in class_totals %}
+    <div class="rounded-2xl bg-white dark:bg-forest-800 border border-gray-100 dark:border-forest-700 shadow-sm p-5">
+      <div class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-sm flex-shrink-0" style="background-color: {{ c.color }}"></span>
+        <p class="text-xs text-gray-400 dark:text-forest-500 font-medium uppercase tracking-wide">{{ c.name }}s detected</p>
+      </div>
+      <p class="mt-2 text-3xl font-bold tabular-nums text-gray-900 dark:text-forest-100">{{ c.count }}</p>
+      <p class="mt-1 text-xs text-gray-400 dark:text-forest-500 tabular-nums">
+        {% widthratio c.count completed_count 1 %} per image on average
+      </p>
+    </div>
+    {% endfor %}
+    <div class="rounded-2xl bg-white dark:bg-forest-800 border border-gray-100 dark:border-forest-700 shadow-sm p-5">
+      <p class="text-xs text-gray-400 dark:text-forest-500 font-medium uppercase tracking-wide">Images processed</p>
+      <p class="mt-2 text-3xl font-bold tabular-nums text-gray-900 dark:text-forest-100">{{ completed_count }}<span class="text-base font-medium text-gray-400 dark:text-forest-500"> / {{ job.image_count }}</span></p>
+      <p class="mt-1 text-xs tabular-nums {% if failed_count %}text-red-600 dark:text-red-400{% else %}text-gray-400 dark:text-forest-500{% endif %}">
+        {% if failed_count %}{{ failed_count }} failed{% else %}No failures{% endif %}
+      </p>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Images ──────────────────────────────────────────────────────────── #}
+  <div class="rounded-2xl bg-white dark:bg-forest-800 border border-gray-100 dark:border-forest-700 shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100 dark:border-forest-700 flex items-center justify-between">
+      <h3 class="text-sm font-semibold text-gray-900 dark:text-forest-100">
+        Images
+        <span class="ml-1 text-xs text-gray-400 dark:text-forest-500 font-normal">({{ job.image_count }})</span>
+      </h3>
+      {% if job.images_purged %}
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 dark:bg-forest-700 px-2.5 py-0.5 text-xs font-medium text-gray-500 dark:text-forest-400">
+        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916" />
+        </svg>
+        Files purged
+      </span>
+      {% endif %}
+    </div>
+
+    {% if not job.images_purged and job.images.all %}
+    <div class="px-5 py-2.5 border-b border-gray-100 dark:border-forest-700 flex flex-wrap items-center gap-3 bg-gray-50/60 dark:bg-forest-900/20">
+      <label class="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-forest-300 cursor-pointer select-none">
+        <input type="checkbox" :checked="allSelected" @change="allSelected ? deselectAll() : selectAll()"
+               class="w-4 h-4 rounded accent-brand-600 cursor-pointer" />
+        Select all
+      </label>
+      <span class="text-xs text-gray-400 dark:text-forest-500" x-text="selectedCount + ' of ' + totalCount + ' selected'"></span>
+    </div>
+    {% endif %}
+
+    {% if job.images_purged %}
+    <div class="flex flex-col items-center justify-center py-10 text-center px-6">
+      <div class="flex items-center justify-center w-11 h-11 rounded-full bg-gray-100 dark:bg-forest-700 mb-3">
+        <svg class="w-5 h-5 text-gray-400 dark:text-forest-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <p class="text-sm font-medium text-gray-700 dark:text-forest-300">Images have been removed</p>
+      <p class="text-xs text-gray-400 dark:text-forest-500 mt-1 max-w-xs">
+        Image files are automatically deleted 24 hours after a job finishes. The job record and any results are retained.
+      </p>
+    </div>
+
+    {% elif job.images.all %}
+    <div class="flex flex-wrap gap-3 p-5 max-h-[26rem] overflow-y-auto">
+      {% for img in job.images.all %}
+      <div class="group relative rounded-xl overflow-hidden border border-gray-100 dark:border-forest-700 bg-gray-50 dark:bg-forest-700 w-36 h-36 flex-shrink-0{% if img.status == 'completed' %} cursor-pointer{% endif %}"
+           title="{{ img.original_filename }}{% if img.error %} — {{ img.error }}{% endif %}"
+           {% if img.status == 'completed' %}@click="show({{ img.pk }})"{% endif %}>
+        <label class="absolute top-1.5 left-1.5 z-10 flex items-center justify-center w-5 h-5 rounded bg-black/30 backdrop-blur-sm" @click.stop>
+          <input type="checkbox" :checked="selected.has({{ img.pk }})" @change="toggle({{ img.pk }})"
+                 class="w-3.5 h-3.5 rounded accent-brand-600 cursor-pointer" />
+        </label>
+        {% if img.status == 'completed' %}
+          <img src="{% if img.overlay_thumbnail %}{{ img.overlay_thumbnail.url }}{% else %}{% url 'jobs:image_overlay_thumb' pk=img.pk %}{% endif %}"
+               alt="{{ img.original_filename }}" loading="lazy" decoding="async"
+               class="w-full h-full object-cover group-hover:opacity-90 transition" />
+        {% elif img.thumbnail %}
+          <img src="{{ img.thumbnail.url }}" alt="{{ img.original_filename }}" loading="lazy" decoding="async"
+               class="w-full h-full object-cover group-hover:opacity-90 transition" />
+        {% elif img.image %}
+          <img src="{{ img.image.url }}" alt="{{ img.original_filename }}" loading="lazy" decoding="async"
+               class="w-full h-full object-cover group-hover:opacity-90 transition" />
+        {% elif img.drive_thumbnail_url %}
+          <img src="{{ img.drive_thumbnail_url }}" alt="{{ img.original_filename }}" loading="lazy" decoding="async"
+               class="w-full h-full object-cover group-hover:opacity-90 transition" />
+        {% else %}
+          <div class="flex items-center justify-center w-full h-full">
+            <svg class="w-8 h-8 text-gray-300 dark:text-forest-600" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909" />
+            </svg>
+          </div>
+        {% endif %}
+        <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-2">
+          <span class="block text-xs text-white truncate leading-tight">{{ img.original_filename }}</span>
+          {% if img.status == 'completed' %}
+          <span class="mt-0.5 flex flex-wrap gap-1">
+            {% for c in class_totals %}{% with n=img.counts|get_item:c.name %}
+            <span class="inline-flex items-center gap-1 rounded-full bg-black/50 px-1.5 py-0.5 text-[0.65rem] font-semibold text-white tabular-nums">
+              <span class="w-1.5 h-1.5 rounded-full" style="background-color: {{ c.color }}"></span>{{ n|default:0 }} {{ c.name }}{{ n|default:0|pluralize }}
+            </span>
+            {% endwith %}{% endfor %}
+          </span>
+          {% else %}
+          <span class="inline-block mt-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium
+            {% if img.status == 'failed' %}bg-red-500
+            {% elif img.status == 'processing' %}bg-indigo-500
+            {% else %}bg-yellow-500{% endif %} text-white">
+            {{ img.get_status_display }}
+          </span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="py-10 text-center">
+      <p class="text-sm text-gray-400 dark:text-forest-500">No images attached to this job.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ── Results ─────────────────────────────────────────────────────────── #}
+  <div class="rounded-2xl bg-white dark:bg-forest-800 border border-gray-100 dark:border-forest-700 shadow-sm p-5">
+    <h3 class="text-sm font-semibold text-gray-900 dark:text-forest-100 mb-3">Results</h3>
+
+    {% if job.status == 'queued' %}
+    <div class="flex items-center gap-4 py-2">
+      <div class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+        <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.425-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      </div>
+      <div class="flex-1">
+        <p class="text-sm text-gray-700 dark:text-forest-300">
+          Images are uploaded but this job hasn't been configured yet.
+        </p>
+        <p class="text-xs text-gray-400 dark:text-forest-500 mt-0.5">Set the detection parameters to start processing.</p>
+      </div>
+      <a href="{% url 'jobs:configure' pk=job.pk %}"
+         class="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 transition">
+        Configure Job
+      </a>
+    </div>
+
+    {% elif not job.images.all %}
+    <div class="flex items-center gap-3 py-2">
+      <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-forest-700 flex items-center justify-center">
+        <svg class="w-4 h-4 text-gray-400 dark:text-forest-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <p class="text-sm text-gray-500 dark:text-forest-400">
+        Results will appear here once the job is complete.
+        Current status: <strong class="text-gray-700 dark:text-forest-300">{{ job.get_status_display }}</strong>.
+      </p>
+    </div>
+
+    {% else %}
+    <div class="flex flex-wrap items-center gap-4 py-2">
+      <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+        <svg class="w-4 h-4 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+        </svg>
+      </div>
+      <div class="flex-1">
+        <p class="text-sm text-gray-700 dark:text-forest-300">
+          Export results for <span x-text="selectedCount"></span> selected image<span x-show="selectedCount !== 1">s</span>.
+        </p>
+        <p class="text-xs text-gray-400 dark:text-forest-500 mt-0.5">Counts CSV: seed &amp; pod counts per image. Boxes CSV: every detection's class, confidence and pixel coordinates. ZIP: full-resolution overlay images.</p>
+      </div>
+      <div class="flex-shrink-0 flex items-center gap-2">
+        <a :href="selectedCount ? csvHref : '#'" @click="!selectedCount && $event.preventDefault()"
+           :class="selectedCount ? '' : 'opacity-40 cursor-not-allowed pointer-events-none'"
+           class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-forest-600 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-forest-200 hover:bg-gray-50 dark:hover:bg-forest-700 transition">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+          Counts CSV
+        </a>
+        <a :href="selectedCount ? boxesHref : '#'" @click="!selectedCount && $event.preventDefault()"
+           :class="selectedCount ? '' : 'opacity-40 cursor-not-allowed pointer-events-none'"
+           class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-forest-600 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-forest-200 hover:bg-gray-50 dark:hover:bg-forest-700 transition">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+          Boxes CSV
+        </a>
+        <a :href="selectedCount ? zipHref : '#'" @click="!selectedCount && $event.preventDefault()"
+           :class="selectedCount ? '' : 'opacity-40 cursor-not-allowed pointer-events-none'"
+           class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 transition">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+          Images (ZIP)
+        </a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ── Lightbox viewer ───────────────────────────────────────────────── #}
+  <div x-show="open" x-transition
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 px-4 py-8"
+       @keydown.escape.window="close()"
+       @keydown.arrow-right.window="next()"
+       @keydown.arrow-left.window="prev()"
+       @click.self="close()"
+       style="display:none; margin: 0;">{# margin: the parent's space-y-5 would otherwise push this fixed overlay down #}
+
+    <button type="button" @click="close()"
+            class="absolute top-4 right-4 text-white/80 hover:text-white">
+      <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+
+    <button type="button" @click="prev()" x-show="images.length > 1"
+            class="absolute left-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white">
+      <svg class="w-9 h-9" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+      </svg>
+    </button>
+    <button type="button" @click="next()" x-show="images.length > 1"
+            class="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white">
+      <svg class="w-9 h-9" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+      </svg>
+    </button>
+
+    <div class="flex items-center gap-6 max-w-6xl">
+
+      {# Per-class counts — click to show/hide that class's boxes #}
+      <div class="hidden sm:flex flex-col gap-3 flex-shrink-0 w-48">
+        <p class="text-xs font-medium uppercase tracking-wide text-white/50">Detections</p>
+        <template x-for="c in classChips" :key="c.name">
+          <button type="button" @click="toggleClass(c.name)"
+                  class="flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition"
+                  :class="c.visible ? 'border-white/20 bg-white/10 hover:bg-white/15' : 'border-white/10 bg-transparent opacity-50 hover:opacity-75'">
+            <span class="w-3.5 h-3.5 rounded flex-shrink-0 border-2"
+                  :style="`border-color: ${c.color}; background-color: ${c.visible ? c.color : 'transparent'}`"></span>
+            <span class="flex-1 min-w-0">
+              <span class="block text-2xl font-bold leading-none text-white tabular-nums" x-text="c.count"></span>
+              <span class="block mt-1 text-xs text-white/60" x-text="c.name + (c.count === 1 ? '' : 's')"></span>
+            </span>
+          </button>
+        </template>
+        <div class="rounded-xl border border-white/10 px-3 py-2.5">
+          <span class="block text-2xl font-bold leading-none text-white tabular-nums" x-text="currentTotal"></span>
+          <span class="block mt-1 text-xs text-white/60">total &middot; confidence &ge; {% widthratio job.conf 1 100 %}%</span>
+        </div>
+        <a :href="current.download_url ? current.download_url + '?download=1' : '#'"
+           class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/20 px-3 py-2 text-xs font-semibold text-white/80 hover:bg-white/10 hover:text-white transition">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+          Download overlay
+        </a>
+        <p class="text-[0.65rem] leading-snug text-white/40">Hover a box to see its confidence. Click a class to hide or show it.</p>
+      </div>
+
+      {# Image + caption #}
+      <div class="flex flex-col items-center min-w-0">
+        <div class="relative flex items-center justify-center min-w-[280px] max-w-full" style="height: 70vh;">
+          {% comment %}
+            The wrapper shrink-wraps the displayed image, so an SVG stretched over
+            it with the original image's pixel size as its viewBox lines every box
+            up exactly, at any zoom.
+          {% endcomment %}
+          <div class="relative max-h-full max-w-full transition-opacity duration-200"
+               :class="loading ? 'opacity-0' : 'opacity-100'">
+            <img :src="open ? current.url : ''" :alt="current.name"
+                 @load="loading = false" @error="loading = false"
+                 class="block max-w-full rounded-lg object-contain" style="max-height: 70vh;" />
+            <svg x-show="!loading" class="absolute inset-0 w-full h-full" preserveAspectRatio="none"
+                 :view-box.camel="`0 0 ${current.size ? current.size[0] : 1} ${current.size ? current.size[1] : 1}`"
+                 x-html="boxesSvg"></svg>
+          </div>
+          <div x-show="loading" x-transition.opacity
+               class="absolute inset-0 flex items-center justify-center">
+            <svg viewBox="0 0 100 100" class="w-20 h-20" aria-label="Loading image">
+              <g fill="#a16207">
+                <ellipse class="seed-dot" style="animation-delay:0s"   cx="30" cy="38" rx="11" ry="8" transform="rotate(-25 30 38)" />
+                <ellipse class="seed-dot" style="animation-delay:.2s"  cx="62" cy="30" rx="11" ry="8" transform="rotate(20 62 30)" />
+                <ellipse class="seed-dot" style="animation-delay:.4s"  cx="70" cy="64" rx="11" ry="8" transform="rotate(-15 70 64)" />
+                <ellipse class="seed-dot" style="animation-delay:.6s"  cx="38" cy="70" rx="11" ry="8" transform="rotate(30 38 70)" />
+              </g>
+              <g fill="none" stroke="#4ade80" stroke-width="3" stroke-linecap="round">
+                <path d="M6 22V6h16M78 6h16v16M94 78v16H78M22 94H6V78" />
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div class="mt-4 text-center">
+          <p class="text-sm font-medium text-white" x-text="current.name"></p>
+          <p class="text-xs text-white/60 mt-1" x-text="(index + 1) + ' of ' + images.length"></p>
+          <p class="sm:hidden text-xs text-white/80 mt-2">
+            <template x-for="c in classChips" :key="c.name">
+              <span class="inline-flex items-center gap-1 mx-1.5"><span class="w-2 h-2 rounded-full" :style="`background-color: ${c.color}`"></span><span x-text="c.count + ' ' + c.name + (c.count === 1 ? '' : 's')"></span></span>
+            </template>
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function lightbox() {
+  return {
+    images: JSON.parse(document.getElementById('overlay-images-data').textContent),
+    classColors: JSON.parse(document.getElementById('class-colors-data').textContent),
+    allImageIds: JSON.parse(document.getElementById('all-image-ids-data').textContent),
+    selected: new Set(JSON.parse(document.getElementById('all-image-ids-data').textContent)),
+    hidden: new Set(),
+    open: false,
+    loading: false,
+    index: 0,
+    toggle(id) {
+      const next = new Set(this.selected);
+      next.has(id) ? next.delete(id) : next.add(id);
+      this.selected = next;
+    },
+    selectAll() { this.selected = new Set(this.allImageIds); },
+    deselectAll() { this.selected = new Set(); },
+    get selectedCount() { return this.selected.size; },
+    get totalCount() { return this.allImageIds.length; },
+    get allSelected() { return this.selected.size === this.allImageIds.length; },
+    get csvHref() {
+      const base = "{% url 'jobs:detections_csv' pk=job.pk %}";
+      return this.allSelected ? base : `${base}?ids=${[...this.selected].join(',')}`;
+    },
+    get boxesHref() {
+      const base = "{% url 'jobs:boxes_csv' pk=job.pk %}";
+      return this.allSelected ? base : `${base}?ids=${[...this.selected].join(',')}`;
+    },
+    get zipHref() {
+      const base = "{% url 'jobs:images_zip' pk=job.pk %}";
+      return this.allSelected ? base : `${base}?ids=${[...this.selected].join(',')}`;
+    },
+    show(id) {
+      const i = this.images.findIndex(img => img.id === id);
+      if (i === -1) return;
+      this.loading = true;
+      this.index = i;
+      this.open = true;
+    },
+    close() { this.open = false; },
+    next() { this.loading = true; this.index = (this.index + 1) % this.images.length; },
+    prev() { this.loading = true; this.index = (this.index - 1 + this.images.length) % this.images.length; },
+    get current() { return this.images[this.index] || {}; },
+    get classChips() {
+      const counts = this.current.counts || {};
+      return Object.keys(this.classColors).map(name => ({
+        name,
+        color: this.classColors[name],
+        count: counts[name] || 0,
+        visible: !this.hidden.has(name),
+      }));
+    },
+    get currentTotal() {
+      return Object.values(this.current.counts || {}).reduce((a, b) => a + b, 0);
+    },
+    toggleClass(name) {
+      const next = new Set(this.hidden);
+      next.has(name) ? next.delete(name) : next.add(name);
+      this.hidden = next;
+    },
+    get boxesSvg() {
+      // Built as markup (rather than <template x-for>) because Alpine can't
+      // clone <template> elements that live inside an <svg>.
+      const esc = (t) => String(t).replace(/[&<>"]/g, ch => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch]));
+      return (this.current.boxes || [])
+        .filter(d => !this.hidden.has(d.c))
+        .slice().reverse()  // lowest confidence first, so the strongest boxes draw on top
+        .map(d => {
+          const [x1, y1, x2, y2] = d.b;
+          const color = this.classColors[d.c] || '#ffff00';
+          return `<rect class="det-box" x="${x1}" y="${y1}" width="${Math.max(x2 - x1, 1)}" height="${Math.max(y2 - y1, 1)}" `
+            + `fill="${color}" fill-opacity="0.18" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke">`
+            + `<title>${esc(d.c)} · ${Math.round(d.s * 100)}% confidence</title></rect>`;
+        }).join('');
+    },
+  }
+}
+</script>
+{% endblock %}

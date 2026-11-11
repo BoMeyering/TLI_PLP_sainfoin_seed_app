@@ -1,0 +1,86 @@
+# Stands up SeedView (sainfoin seed detection) + Postgres 16.
+#
+# Build the image first (tags both a version and `latest`):
+#   ./build_container.sh
+#
+# Then bring everything up (copy .env.docker.example to .env.docker and fill
+# it in first — see that file for why it's .env.docker and not plain .env):
+#   docker compose --env-file .env.docker up -d
+#
+# All app config is passed in as environment variables below, resolved from
+# ${VAR} references against .env.docker. Anything without a default here is
+# required.
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-seedview}"
+      POSTGRES_USER: "${POSTGRES_USER:-seedview}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-seedview} -d ${POSTGRES_DB:-seedview}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  web:
+    image: "${IMAGE_NAME:-ghcr.io/oxbow-solutions/tli_plp_sainfoin_seed_app}:${IMAGE_TAG:-latest}"
+    # Runs tini as real PID 1 so both gunicorn's and supercronic's child
+    # processes get reaped properly, and signals still forward correctly.
+    init: true
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    volumes:
+      - media_data:/app/media
+    environment:
+      # ── Django core ──────────────────────────────────────────────────────
+      DJANGO_SETTINGS_MODULE: "seedview.settings.prod"
+      SECRET_KEY: "${SECRET_KEY:?SECRET_KEY must be set}"
+      DEBUG: "${DEBUG:-False}"
+      ALLOWED_HOSTS: "${ALLOWED_HOSTS:?ALLOWED_HOSTS must be set, e.g. seedview.example.com}"
+      CSRF_TRUSTED_ORIGINS: "${CSRF_TRUSTED_ORIGINS:?CSRF_TRUSTED_ORIGINS must be set, e.g. https://seedview.example.com}"
+
+      # ── Database — built from the same Postgres credentials as the db
+      #    service above, so there's one source of truth for them. ──────────
+      DATABASE_URL: "postgres://${POSTGRES_USER:-seedview}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:-seedview}"
+
+      # ── Google OAuth / Drive Picker ──────────────────────────────────────
+      GOOGLE_OAUTH2_CLIENT_ID: "${GOOGLE_OAUTH2_CLIENT_ID:?GOOGLE_OAUTH2_CLIENT_ID must be set}"
+      GOOGLE_OAUTH2_CLIENT_SECRET: "${GOOGLE_OAUTH2_CLIENT_SECRET:?GOOGLE_OAUTH2_CLIENT_SECRET must be set}"
+      GOOGLE_API_KEY: "${GOOGLE_API_KEY:?GOOGLE_API_KEY must be set}"
+
+      # ── RunPod inference API ─────────────────────────────────────────────
+      RUNPOD_BASE_URL: "${RUNPOD_BASE_URL:-https://api.runpod.ai/v2/39hov69mmwkuf9}"
+      RUNPOD_API_KEY: "${RUNPOD_API_KEY:?RUNPOD_API_KEY must be set}"
+      RUNPOD_INFERENCE_SIZE: "${RUNPOD_INFERENCE_SIZE:-512}"
+      RUNPOD_MAX_CONCURRENCY: "${RUNPOD_MAX_CONCURRENCY:-4}"
+      RUNPOD_JOB_TIMEOUT: "${RUNPOD_JOB_TIMEOUT:-300}"
+      RUNPOD_WARMUP_TIMEOUT: "${RUNPOD_WARMUP_TIMEOUT:-180}"
+
+      # ── Optional: auto-create a superuser on first boot (see
+      #    ensure_superuser management command). Leave unset to skip. ───────
+      DJANGO_SUPERUSER_USERNAME: "${DJANGO_SUPERUSER_USERNAME:-}"
+      DJANGO_SUPERUSER_EMAIL: "${DJANGO_SUPERUSER_EMAIL:-}"
+      DJANGO_SUPERUSER_PASSWORD: "${DJANGO_SUPERUSER_PASSWORD:-}"
+
+      # ── gunicorn tuning — gthread workers (set in docker/entrypoint.sh) so
+      #    a slow-but-legitimate SSE response (image processing, Drive
+      #    upload progress) isn't killed by --timeout; size WORKERS/THREADS
+      #    for how many jobs can realistically run at once. ────────────────
+      GUNICORN_WORKERS: "${GUNICORN_WORKERS:-3}"
+      GUNICORN_THREADS: "${GUNICORN_THREADS:-4}"
+      GUNICORN_TIMEOUT: "${GUNICORN_TIMEOUT:-120}"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  media_data:

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}SeedView{% endblock %}</title>
+  <script>
+    (function () {
+      const stored = localStorage.getItem('seedview-theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (stored === 'dark' || (!stored && prefersDark)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50:  '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+            },
+            forest: {
+              100: '#e4f1e8',
+              200: '#c6dccd',
+              300: '#a5c0af',
+              400: '#7f9f8c',
+              500: '#5c7a69',
+              600: '#40594c',
+              700: '#2c3f36',
+              800: '#1c2c24',
+              900: '#111d17',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  {% load static %}
+  <link rel="icon" type="image/png" href="{% static 'favicon.png' %}">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="h-full font-sans antialiased bg-gray-50 dark:bg-forest-900 transition-colors duration-200">
+
+<div class="flex min-h-full flex-col justify-center py-12 sm:px-6 lg:px-8">
+
+  {# Logo / brand ────────────────────────────────────────────────────────── #}
+  <div class="sm:mx-auto sm:w-full sm:max-w-md text-center">
+    <div class="inline-flex items-center justify-center mb-4">
+      {% include "components/logo.html" with tile_class="w-14 h-14 rounded-2xl shadow-lg" icon_class="w-11 h-11" %}
+    </div>
+    <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-forest-100">SeedView</h1>
+    <p class="mt-1 text-sm text-gray-500 dark:text-forest-400">Plant growth image analysis platform</p>
+  </div>
+
+  {# Card ───────────────────────────────────────────────────────────────── #}
+  <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+    <div class="bg-white dark:bg-forest-800 py-8 px-6 shadow-sm rounded-2xl border border-gray-100 dark:border-forest-700">
+      {% block card_content %}{% endblock %}
+    </div>
+  </div>
+
+</div>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>
