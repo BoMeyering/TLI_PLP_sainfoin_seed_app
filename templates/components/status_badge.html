@@ -1,0 +1,9 @@
+<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+  {% if status == 'completed' %}bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400
+  {% elif status == 'failed' %}bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-400
+  {% elif status == 'processing' %}bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-400
+  {% elif status == 'queued' %}bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-400
+  {% elif status == 'cancelled' %}bg-gray-100 dark:bg-forest-700 text-gray-600 dark:text-forest-400
+  {% else %}bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-400{% endif %}">
+  {{ label }}
+</span>

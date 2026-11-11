@@ -1,0 +1,463 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Submit Images — SeedView{% endblock %}
+{% block page_title %}Submit New Images{% endblock %}
+{% block page_subtitle %}<p class="text-xs text-gray-400 dark:text-forest-500 mt-0.5">Upload images for analysis</p>{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+<form method="POST" enctype="multipart/form-data" id="submitForm"
+      x-data="submitJob()">
+  {% csrf_token %}
+
+  {# Form errors #}
+  {% if form.non_field_errors %}
+  <div class="mb-4 rounded-xl bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800/50 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+    {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="space-y-5">
+
+    {# ── Job info card ──────────────────────────────────────────────────── #}
+    <div class="rounded-2xl bg-white dark:bg-forest-800 border border-gray-100 dark:border-forest-700 shadow-sm p-5">
+      <h3 class="text-sm font-semibold text-gray-900 dark:text-forest-100 mb-4">Job Details</h3>
+
+      <div class="space-y-4">
+        <div>
+          <label for="{{ form.name.id_for_label }}" class="block text-xs font-medium text-gray-700 dark:text-forest-300 mb-1.5">
+            Job Name <span class="text-red-500">*</span>
+          </label>
+          {{ form.name }}
+          {% if form.name.errors %}
+            <p class="mt-1 text-xs text-red-600">{{ form.name.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label for="{{ form.description.id_for_label }}" class="block text-xs font-medium text-gray-700 mb-1.5">
+            Description
+          </label>
+          {{ form.description }}
+        </div>
+      </div>
+    </div>
+
+    {# ── Image source card ──────────────────────────────────────────────── #}
+    <div class="rounded-2xl bg-white dark:bg-forest-800 border border-gray-100 dark:border-forest-700 shadow-sm p-5">
+      <h3 class="text-sm font-semibold text-gray-900 dark:text-forest-100 mb-4">Image Source</h3>
+
+      {# Source tabs #}
+      <div class="flex gap-2 mb-5">
+        <button type="button"
+                @click="source = 'local'"
+                :class="source === 'local'
+                  ? 'bg-brand-600 text-white shadow-sm'
+                  : 'bg-gray-100 dark:bg-forest-700 text-gray-600 dark:text-forest-400 hover:bg-gray-200 dark:hover:bg-forest-600'"
+                class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+          </svg>
+          Local Upload
+        </button>
+
+        <button type="button"
+                @click="source = 'google_drive'"
+                :class="source === 'google_drive'
+                  ? 'bg-brand-600 text-white shadow-sm'
+                  : 'bg-gray-100 dark:bg-forest-700 text-gray-600 dark:text-forest-400 hover:bg-gray-200 dark:hover:bg-forest-600'"
+                class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition">
+          <svg class="w-4 h-4" viewBox="0 0 87.3 78" fill="currentColor">
+            <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3L27.5 53H0c0 1.55.4 3.1 1.2 4.5z" fill="{% if source == 'google_drive' %}white{% else %}#0066DA{% endif %}"/>
+            <path d="M43.65 25L29.9 1.4C28.55.55 27 0 25.35 0c-1.65 0-3.2.55-4.55 1.4L6.6 25z" fill="{% if source == 'google_drive' %}white{% else %}#00AC47{% endif %}"/>
+            <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H60.2l5.55 10.85z" fill="{% if source == 'google_drive' %}white{% else %}#EA4335{% endif %}"/>
+            <path d="M43.65 25L57.4 1.4C56.05.55 54.5 0 52.85 0H34.45c-1.65 0-3.2.55-4.55 1.4z" fill="{% if source == 'google_drive' %}white{% else %}#00832D{% endif %}"/>
+            <path d="M60.2 53H27.5L13.75 76.8c1.35.8 2.9 1.2 4.55 1.2h50.7c1.65 0 3.2-.4 4.55-1.2z" fill="{% if source == 'google_drive' %}white{% else %}#2684FC{% endif %}"/>
+            <path d="M73.4 26.5l-7.1-12.3c-.8-1.4-1.95-2.5-3.3-3.3L49.25 34 60.2 53h27.1c0-1.55-.4-3.1-1.2-4.5z" fill="{% if source == 'google_drive' %}white{% else %}#FFBA00{% endif %}"/>
+          </svg>
+          Google Drive
+        </button>
+      </div>
+
+      {# Local upload panel #}
+      <div x-show="source === 'local'" x-transition>
+        <div
+          id="dropZone"
+          @dragover.prevent="dragOver = true"
+          @dragleave.prevent="dragOver = false"
+          @drop.prevent="handleDrop($event)"
+          :class="dragOver ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-gray-300 dark:border-forest-600 bg-gray-50 dark:bg-forest-700/50 hover:bg-gray-100 dark:hover:bg-forest-700'"
+          class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 transition cursor-pointer"
+          @click="$refs.fileInput.click()">
+          <svg class="w-10 h-10 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 21h18M3.75 3h16.5M4.5 3v18M19.5 3v18" />
+          </svg>
+          <p class="text-sm font-medium text-gray-700">
+            <span class="text-brand-600">Click to upload</span> or drag and drop
+          </p>
+          <p class="text-xs text-gray-400 mt-1">PNG, JPG, JPEG, TIFF up to 50 MB each</p>
+          <input x-ref="fileInput" type="file" name="images" multiple
+                 accept="image/png,image/jpeg,image/tiff,image/webp"
+                 class="sr-only"
+                 @change="handleFileSelect($event)" />
+        </div>
+
+        {# Selected files list #}
+        <div x-show="localFiles.length > 0" class="mt-4 space-y-2">
+          <p class="text-xs font-medium text-gray-500">
+            <span x-text="localFiles.length"></span> file(s) selected
+          </p>
+          <div class="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+            <template x-for="(file, i) in localFiles" :key="i">
+              <div class="flex items-center justify-between rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-xs">
+                <div class="flex items-center gap-2 min-w-0">
+                  <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159" />
+                  </svg>
+                  <span class="truncate text-gray-700" x-text="file.name"></span>
+                </div>
+                <button type="button" @click="removeLocalFile(i)"
+                        class="ml-2 text-gray-400 hover:text-red-500 flex-shrink-0">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      {# Google Drive panel #}
+      <div x-show="source === 'google_drive'" x-transition>
+        <div class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-10">
+          <svg class="w-10 h-10 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+          </svg>
+          <p class="text-sm font-medium text-gray-700 mb-3">Select images from Google Drive</p>
+          <button type="button"
+                  @click="openDrivePicker()"
+                  class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Open Google Drive Picker
+          </button>
+          <p class="text-xs text-gray-400 mt-2" x-show="!googleToken">
+            Note: You must be logged in with Google to use this feature.
+          </p>
+        </div>
+
+        {# Drive selected files #}
+        <div x-show="driveFiles.length > 0" class="mt-4 space-y-2">
+          <p class="text-xs font-medium text-gray-500">
+            <span x-text="driveFiles.length"></span> file(s) from Google Drive
+          </p>
+          <div class="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+            <template x-for="(file, i) in driveFiles" :key="file.id">
+              <div class="flex items-center justify-between rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-xs">
+                <div class="flex items-center gap-2 min-w-0">
+                  <svg class="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775" />
+                  </svg>
+                  <span class="truncate text-blue-700" x-text="file.name"></span>
+                </div>
+                <button type="button" @click="removeDriveFile(i)"
+                        class="ml-2 text-blue-400 hover:text-red-500 flex-shrink-0">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        {# Hidden field for Drive file JSON #}
+        <input type="hidden" name="drive_files" :value="JSON.stringify(driveFiles)" />
+      </div>
+
+    </div>
+
+    {# Hidden source field #}
+    <input type="hidden" name="source" :value="source" />
+
+    {% comment %}
+    Upload progress bar — local uploads track real request bytes; Drive jobs
+    track real per-file server-side fetch progress (the request body for a
+    Drive job is just a small file-id list, so byte progress would jump to
+    100% almost instantly and say nothing about the actual Drive fetches).
+    {% endcomment %}
+    <div x-show="submitting" x-transition>
+      <template x-if="source === 'google_drive'">
+        <div>
+          <div class="flex items-center justify-between text-xs text-gray-500 dark:text-forest-400 mb-1.5">
+            <span x-text="driveTotal > 0 ? `Fetching ${driveDone} of ${driveTotal} — ${driveCurrentName}` : 'Starting…'"></span>
+            <span x-text="(driveTotal > 0 ? Math.round((driveDone / driveTotal) * 100) : 0) + '%'"></span>
+          </div>
+          <div class="h-2 rounded-full bg-gray-100 dark:bg-forest-700 overflow-hidden">
+            <div class="h-full bg-brand-500 transition-all duration-150"
+                 :style="`width: ${driveTotal > 0 ? Math.round((driveDone / driveTotal) * 100) : 0}%`"></div>
+          </div>
+        </div>
+      </template>
+      <template x-if="source !== 'google_drive'">
+        <div>
+          <div class="flex items-center justify-between text-xs text-gray-500 dark:text-forest-400 mb-1.5">
+            <span>Uploading…</span>
+            <span x-text="uploadProgress + '%'"></span>
+          </div>
+          <div class="h-2 rounded-full bg-gray-100 dark:bg-forest-700 overflow-hidden">
+            <div class="h-full bg-brand-500 transition-all duration-150" :style="`width: ${uploadProgress}%`"></div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    {# Submit button #}
+    <div class="flex items-center justify-between gap-3">
+      {% comment %}Targets #sampleJobForm (below, outside #submitForm) via the form= attribute —
+         forms can't nest, so an inline <form> here would submit the upload form instead.{% endcomment %}
+      <button type="submit" form="sampleJobForm" x-data="{ loading: false }"
+              @click="$nextTick(() => loading = true)" :disabled="loading"
+              class="text-sm font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 disabled:opacity-60 disabled:cursor-wait">
+        <span x-text="loading ? 'Loading sample images…' : 'Just want to see how it works? Try a sample job instead →'">Just want to see how it works? Try a sample job instead →</span>
+      </button>
+      <div class="flex gap-3">
+      <a href="{% url 'jobs:dashboard' %}"
+         class="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+        Cancel
+      </a>
+      <button type="button"
+              @click="handleSubmit()"
+              :disabled="submitting"
+              class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 transition disabled:opacity-60 disabled:cursor-not-allowed">
+        <svg x-show="submitting" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <span x-text="submitting ? 'Uploading…' : 'Upload Images'"></span>
+      </button>
+      </div>
+    </div>
+
+  </div>
+</form>
+<form method="POST" action="{% url 'jobs:submit_sample' %}" id="sampleJobForm">
+  {% csrf_token %}
+</form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const GOOGLE_API_KEY = "{{ google_api_key|escapejs }}";
+  const GOOGLE_TOKEN   = "{{ google_token|escapejs }}";
+  window.PICKER_ERROR_URL = "{% url 'jobs:picker_error_api' %}";
+</script>
+<script src="https://apis.google.com/js/api.js"></script>
+<script src="{% static 'js/google_picker.js' %}"></script>
+<script>
+function submitJob() {
+  return {
+    source: 'local',
+    localFiles: [],
+    driveFiles: [],
+    dragOver: false,
+    submitting: false,
+    uploadProgress: 0,
+    driveTotal: 0,
+    driveDone: 0,
+    driveCurrentName: '',
+    googleToken: GOOGLE_TOKEN,
+
+    init() {
+      // Listen for Drive picker results from picker.js
+      window.addEventListener('driveFilesSelected', (e) => {
+        this.driveFiles = [...this.driveFiles, ...e.detail];
+      });
+    },
+
+    handleFileSelect(event) {
+      const newFiles = Array.from(event.target.files);
+      // Merge without duplicates by name+size
+      newFiles.forEach(f => {
+        if (!this.localFiles.find(e => e.name === f.name && e.size === f.size)) {
+          this.localFiles.push(f);
+        }
+      });
+      // Rebuild a new FileList-like object on the real input
+      this.syncInputFiles();
+    },
+
+    handleDrop(event) {
+      this.dragOver = false;
+      const files = Array.from(event.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+      files.forEach(f => {
+        if (!this.localFiles.find(e => e.name === f.name && e.size === f.size)) {
+          this.localFiles.push(f);
+        }
+      });
+      this.syncInputFiles();
+    },
+
+    removeLocalFile(index) {
+      this.localFiles.splice(index, 1);
+      this.syncInputFiles();
+    },
+
+    syncInputFiles() {
+      const dt = new DataTransfer();
+      this.localFiles.forEach(f => dt.items.add(f));
+      this.$refs.fileInput.files = dt.files;
+    },
+
+    removeDriveFile(index) {
+      this.driveFiles.splice(index, 1);
+    },
+
+    async openDrivePicker() {
+      if (!GOOGLE_TOKEN) {
+        alert('Google Drive access is not available. Please sign in again.');
+        return;
+      }
+      // Fetch a live token rather than reusing the one embedded at page-load —
+      // access tokens expire in ~1hr, so a tab left open goes stale otherwise.
+      let token = GOOGLE_TOKEN;
+      try {
+        const resp = await fetch('{% url "jobs:google_token_api" %}');
+        const data = await resp.json();
+        if (data.drive_scope_missing) {
+          alert('SeedView doesn\'t have permission to read your Google Drive. Please sign out, sign back in, and make sure the Google Drive box is checked on the Google permissions screen.');
+          return;
+        }
+        if (data.token) token = data.token;
+      } catch (e) {
+        // Fall back to the page-load token if the refresh call itself fails.
+        window.reportPickerError('token_fetch', e && e.message ? e.message : e);
+      }
+      if (!token) {
+        alert('Your Google Drive access has expired. Please sign out and sign back in.');
+        return;
+      }
+      window.openGooglePicker(token, GOOGLE_API_KEY);
+    },
+
+    async handleSubmit() {
+      if (this.source === 'local' && this.localFiles.length === 0) {
+        alert('Please select at least one image file.');
+        return;
+      }
+      if (this.source === 'google_drive' && this.driveFiles.length === 0) {
+        alert('Please select at least one file from Google Drive.');
+        return;
+      }
+      this.submitting = true;
+      this.uploadProgress = 0;
+      this.driveTotal = 0;
+      this.driveDone = 0;
+      this.driveCurrentName = '';
+
+      const form = document.getElementById('submitForm');
+
+      if (this.source === 'google_drive') {
+        await this.submitDriveJob(form);
+        return;
+      }
+
+      const formData = new FormData(form);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', form.action, true);
+
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          this.uploadProgress = Math.round((e.loaded / e.total) * 100);
+        }
+      });
+
+      xhr.onload = () => {
+        // A successful upload redirects to the Configure page; anything else
+        // (e.g. validation errors) falls back to a normal submit so the server
+        // can re-render the form with errors.
+        if (xhr.responseURL && xhr.responseURL.includes('/configure/')) {
+          window.location.href = xhr.responseURL;
+        } else {
+          form.submit();
+        }
+      };
+
+      xhr.onerror = () => {
+        this.submitting = false;
+        alert('Upload failed. Please check your connection and try again.');
+      };
+
+      xhr.send(formData);
+    },
+
+    // Drive jobs don't upload any image bytes in the request — the server
+    // fetches each file from Drive itself — so there's no byte-progress event
+    // to track. The server streams real per-file progress instead (same SSE
+    // pattern as the processing step on the configure page); read it here.
+    async submitDriveJob(form) {
+      const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+      try {
+        const response = await fetch(form.action, {
+          method: 'POST',
+          body: new FormData(form),
+          headers: { 'X-CSRFToken': csrfToken },
+        });
+
+        const contentType = response.headers.get('Content-Type') || '';
+        if (!response.body || !contentType.includes('text/event-stream')) {
+          // Not a stream (e.g. validation failed server-side) — follow wherever it landed.
+          window.location.href = response.url;
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          let boundary;
+          while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+            const rawEvent = buffer.slice(0, boundary);
+            buffer = buffer.slice(boundary + 2);
+
+            let eventType = 'message';
+            let dataLine = '';
+            for (const line of rawEvent.split('\n')) {
+              if (line.startsWith('event:')) eventType = line.slice(6).trim();
+              if (line.startsWith('data:')) dataLine = line.slice(5).trim();
+            }
+            if (!dataLine) continue;
+            const payload = JSON.parse(dataLine);
+
+            if (eventType === 'progress') {
+              this.driveTotal = payload.total;
+              this.driveDone = payload.current - 1;
+              this.driveCurrentName = payload.filename;
+            } else if (eventType === 'done') {
+              window.location.href = payload.redirect;
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        this.submitting = false;
+        alert('Upload failed. Please check your connection and try again.');
+      }
+    }
+  }
+}
+</script>
+{% endblock %}

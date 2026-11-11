@@ -218,3 +218,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ── App-specific ──────────────────────────────────────────────────────────
+.env.docker
+media/
+staticfiles/
+# Generated at image build time by `manage.py build_sample_thumbnails`
+sample_images/thumbs/

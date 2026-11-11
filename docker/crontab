@@ -1,0 +1,10 @@
+# supercronic crontab — standard 5-field cron syntax, container time is UTC
+# (see TIME_ZONE in settings/base.py). supercronic captures each command's
+# stdout/stderr itself, so no manual log redirection is needed here.
+
+# Full purge: deletes jobs (DB rows + media) older than 1 week. Nightly at 3am.
+0 3 * * * cd /app && python manage.py purge_old_jobs --days 7
+
+# Quick media-only purge for jobs that reached a terminal state in the last
+# day, keeping their DB history around for the job history page. Hourly.
+0 * * * * cd /app && python manage.py cleanup_expired_images

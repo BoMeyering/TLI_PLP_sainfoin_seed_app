@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}SeedView{% endblock %}</title>
+
+  {# Prevent flash of wrong theme / sidebar width — runs synchronously before render #}
+  <script>
+    (function () {
+      const stored = localStorage.getItem('seedview-theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (stored === 'dark' || (!stored && prefersDark)) {
+        document.documentElement.classList.add('dark');
+      }
+      if (localStorage.getItem('seedview-sidebar-collapsed') === '1') {
+        document.documentElement.classList.add('sidebar-collapsed');
+      }
+    })();
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50:  '#f0fdf4',
+              100: '#dcfce7',
+              200: '#bbf7d0',
+              400: '#4ade80',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+              900: '#14532d',
+            },
+            forest: {
+              100: '#e4f1e8',
+              200: '#c6dccd',
+              300: '#a5c0af',
+              400: '#7f9f8c',
+              500: '#5c7a69',
+              600: '#40594c',
+              700: '#2c3f36',
+              800: '#1c2c24',
+              900: '#111d17',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  {# Alpine theme / sidebar stores — toggles must live before Alpine's defer kicks in #}
+  <script>
+    document.addEventListener('alpine:init', () => {
+      Alpine.store('theme', {
+        dark: document.documentElement.classList.contains('dark'),
+        toggle() {
+          this.dark = !this.dark;
+          document.documentElement.classList.toggle('dark', this.dark);
+          localStorage.setItem('seedview-theme', this.dark ? 'dark' : 'light');
+        }
+      });
+      Alpine.store('sidebar', {
+        collapsed: document.documentElement.classList.contains('sidebar-collapsed'),
+        toggle() {
+          this.collapsed = !this.collapsed;
+          document.documentElement.classList.toggle('sidebar-collapsed', this.collapsed);
+          localStorage.setItem('seedview-sidebar-collapsed', this.collapsed ? '1' : '0');
+        }
+      });
+    });
+  </script>
+
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  {% load static %}
+  <link rel="icon" type="image/png" href="{% static 'favicon.png' %}">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="h-full font-sans antialiased bg-gray-50 dark:bg-forest-900 transition-colors duration-200">
+
+<div class="flex h-screen overflow-hidden">
+
+  {# ── Sidebar ─────────────────────────────────────────────────────────── #}
+  {% include "components/sidebar.html" %}
+
+  {# ── Main column ─────────────────────────────────────────────────────── #}
+  <div class="flex flex-1 flex-col overflow-hidden">
+
+    {# ── Top header ───────────────────────────────────────────────────── #}
+    {% comment %}
+    This markup must live directly in base.html, not in an include'd
+    partial — Django's block overrides only resolve through the extends
+    chain, so blocks inside an included template can never be overridden
+    by a page that extends base.html.
+    {% endcomment %}
+    <header x-data class="flex h-[72px] items-center justify-between bg-white dark:bg-forest-800 border-b border-gray-200 dark:border-forest-700/60 px-4 flex-shrink-0 transition-colors duration-200">
+      <div class="flex items-center gap-2">
+        <button @click="$store.sidebar.toggle()"
+                class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-400 dark:text-forest-500 hover:bg-gray-100 dark:hover:bg-forest-700 hover:text-gray-600 dark:hover:text-forest-200 transition-colors"
+                :aria-label="$store.sidebar.collapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+          <svg class="w-5 h-5 transition-transform duration-200" :class="{ 'rotate-180': $store.sidebar.collapsed }" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+          </svg>
+        </button>
+        <div class="pl-2">
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-forest-100">{% block page_title %}Dashboard{% endblock %}</h2>
+          {% block page_subtitle %}{% endblock %}
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        {% block header_actions %}{% endblock %}
+      </div>
+    </header>
+
+    {# ── Page content ─────────────────────────────────────────────────── #}
+    <main class="flex-1 overflow-y-auto bg-gray-50 dark:bg-forest-900 px-6 py-6">
+      {% include "components/messages.html" %}
+      {% block content %}{% endblock %}
+    </main>
+
+  </div>
+</div>
+
+{# ── Global delete-confirmation modal ────────────────────────────────────── #}
+<div x-data="{
+       open: false,
+       jobName: '',
+       deleteUrl: '',
+       trigger(detail) { this.jobName = detail.name; this.deleteUrl = detail.url; this.open = true; },
+       close() { this.open = false; }
+     }"
+     @delete-job.window="trigger($event.detail)">
+
+  <div x-show="open"
+       x-transition:enter="transition ease-out duration-150"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-100"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+       @keydown.escape.window="close()"
+       @click.self="close()"
+       style="display:none;">
+    <div class="w-full max-w-sm rounded-2xl bg-white dark:bg-forest-800 border border-gray-100 dark:border-forest-700 p-6 shadow-xl">
+      <div class="flex items-start gap-4">
+        <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/40">
+          <svg class="h-5 w-5 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916" />
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-base font-semibold text-gray-900 dark:text-forest-100">Delete job?</h3>
+          <p class="mt-1 text-sm text-gray-500 dark:text-forest-400">
+            <strong x-text="jobName" class="font-medium text-gray-700 dark:text-forest-300"></strong> and all its images will be permanently removed. This cannot be undone.
+          </p>
+        </div>
+      </div>
+      <div class="mt-5 flex justify-end gap-3">
+        <button @click="close()" type="button"
+                class="rounded-lg border border-gray-300 dark:border-forest-600 bg-white dark:bg-forest-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-forest-300 hover:bg-gray-50 dark:hover:bg-forest-600 transition">
+          Cancel
+        </button>
+        <form :action="deleteUrl" method="POST" class="inline">
+          {% csrf_token %}
+          <button type="submit"
+                  class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition">
+            Delete
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>
